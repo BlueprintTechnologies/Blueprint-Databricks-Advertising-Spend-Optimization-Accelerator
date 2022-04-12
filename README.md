@@ -1,4 +1,4 @@
-# Advertising Spend Optimizer
+# Blueprint Accelerator: Advertising Spend Optimizer
 
 ## Overview
 The goal of this accelerator is to save weeks or months of development time for your data engineers and data scientists by providing a platform to Optimize Return on Advertising Spend (ROAS) leveraging Spark, Machine Leaning, and Databricks. 
