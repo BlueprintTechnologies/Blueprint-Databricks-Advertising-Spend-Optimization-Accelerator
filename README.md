@@ -1,7 +1,7 @@
 # Blueprint Accelerator: Advertising Spend Optimizer
 
 ## Overview
-The goal of this accelerator is to save weeks or months of development time for your data engineers and data scientists by providing a platform to Optimize Return on Advertising Spend (ROAS) leveraging Spark, Machine Leaning, and Databricks. 
+The goal of this accelerator is to save weeks or months of development time for your data engineers and data scientists by providing a platform to optimize Return on Advertising Spend (ROAS) leveraging Spark, Machine Leaning, and Databricks.
 
 This accelerator uses the python optimization engine Coin|Or [PuLP](https://coin-or.github.io/pulp/) library to provide a business friendly optimization layer. This provides configurable objective functions that are aligned to Operations Research best practices. No mysterious black boxes.
 
