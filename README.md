@@ -1,5 +1,5 @@
-# ad-spend-opt
-X-Challenge Ad Spend Optimizer
+# Advertising Spend Optimizer
+
 
 based on Measure Ad Effectiveness with Multi-touch Attribution Accelerator
 
