@@ -132,28 +132,6 @@ display(data)
 
 # COMMAND ----------
 
-""""
-def selAssembleDF(DF:DataFrame, cols:List[String],nonfeature:Array[String]):DataFrame={
-    val tDF = DF.select(cols.head, cols.tail: _*)
-    // assemble all features into a feature array
-    val assembler = new VectorAssembler()
-      .setOutputCol("features")
-      .setInputCols(tDF.columns.diff(nonfeature)) 
-    val rDF = assembler.transform(tDF)
-    return rDF
-}
-"""
-
-# COMMAND ----------
-
-print
-
-# COMMAND ----------
-
-print(train_data.columns)
-
-# COMMAND ----------
-
 # MAGIC %md
 # MAGIC https://docs.databricks.com/_static/notebooks/gbt-regression.html
 
