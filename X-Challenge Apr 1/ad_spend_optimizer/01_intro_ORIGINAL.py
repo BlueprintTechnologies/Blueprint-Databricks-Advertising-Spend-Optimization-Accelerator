@@ -256,10 +256,6 @@ display(spark.read.format('csv').option('header','true').load(raw_data_path))
 
 # COMMAND ----------
 
-#Add 
-
-# COMMAND ----------
-
 # MAGIC %md
 # MAGIC ## Next Steps
 # MAGIC * In the next notebook, we will load the data we generated here into [Delta](https://docs.databricks.com/delta/delta-intro.html) tables.

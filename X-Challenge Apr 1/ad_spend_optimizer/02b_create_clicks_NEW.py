@@ -16,7 +16,8 @@
 # MAGIC 
 # MAGIC * This new accelerator is based on original Databricks Accelerator [Solution Accelerator: Multi-touch Attribution](https://databricks.com/blog/2021/08/23/solution-accelerator-multi-touch-attribution.html)
 # MAGIC 
-# MAGIC * As of this X-Challenge version the original Databricks data is still required, so the original Databricks notebooks are still required to create the BRONZE and SILVER raw data tables
+# MAGIC * As of this X-Challenge version the original Databricks data is still required.
+# MAGIC    * if not already done, please run the original Databricks notebooks to create the BRONZE and SILVER attibution tables
 
 # COMMAND ----------
 
@@ -37,14 +38,14 @@
 # MAGIC 
 # MAGIC ### In this notebook you:
 # MAGIC * Add Impressions and Click Share data
-# MAGIC * Add cost data
+# MAGIC * Add Cost data
 
 # COMMAND ----------
 
 # MAGIC %md
 # MAGIC ## Step 1: Configure the Environment
 # MAGIC 
-# MAGIC In this step, we will:
+# MAGIC In this step:
 # MAGIC   1. Import libraries
 # MAGIC   2. Run `utils` notebook to gain access to the function `get_params`
 # MAGIC   3. `get_params` and store values in variables
@@ -92,11 +93,7 @@ print(raw_data_path)
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Step : Create Click Share Data
-
-# COMMAND ----------
-
-# MAGIC %md **Note:** For the purpose of this solution accelerator...
+# MAGIC ##### Step 1.4: Select Database
 
 # COMMAND ----------
 
@@ -106,25 +103,27 @@ _ = spark.sql('USE {}'.format(database_name))
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Step : Load bronze-level table in Delta Lake
-# MAGIC 
-# MAGIC * **Note:** this step will produce an exception if it is run before writeStream in step 3 is initialized.
+# MAGIC ## Step 2: Load bronze-level table in Delta Lake
+# MAGIC   
+# MAGIC * bronze-level tables for raw data are crated by original Databricks Accelerator (notebooks marked with ORIGINAL notebook name)
 # MAGIC 
 # MAGIC * The nomenclature of bronze, silver, and gold tables correspond with a commonly used data modeling approach known as multi-hop architecture. 
 # MAGIC   * Additional information about this pattern can be found [here](https://databricks.com/blog/2019/08/14/productionizing-machine-learning-with-delta-lake.html).
 
 # COMMAND ----------
 
-#bronze_tbl = spark.table("{}.bronze".format(database_name))
+# DBTITLE 1,Load synthetic data created by Original Databricks Accelerator
 bronze_data = spark.sql(f"select * from {database_name}.bronze")
 display(bronze_data)
 
 # COMMAND ----------
 
+# DBTITLE 1,Quick Data Exploration
 display(bronze_data.select("interaction").groupby("interaction").count())
 
 # COMMAND ----------
 
+# DBTITLE 1,Impression Counts Percentage per Channel
 from pyspark.sql.functions import lit
 nrows = bronze_data.count()
 print(f"{nrows} rows")
@@ -139,9 +138,10 @@ display(per_channel)
 
 # COMMAND ----------
 
+# DBTITLE 1,Average number of interactions per user (created by Original Databricks Accelerator)
 users = bronze_data.select('uid').distinct()
 nusers = users.count()
-print(nusers, nrows)
+print(f"number of users: {nusers} total number of interactions: {nrows}")
 per_user = (bronze_data.select("uid")
                .groupby("uid")
                .count()
@@ -153,22 +153,46 @@ display(per_user.select("count").distinct().sort('count', ascending = False))
 
 # COMMAND ----------
 
+# MAGIC %md
+# MAGIC ### Simulate Clicks
+# MAGIC 
+# MAGIC for simulating purposes will assume a click through rate for each ad ctr according to a simulated position on a google search like query
+# MAGIC * Ex. first position on the search will get the majority of clicks 
+# MAGIC * last position on the search gets very few clicks
+# MAGIC 
+# MAGIC This is only for the purpose of generating synthetic data
+# MAGIC * on a real life scenario, the number of clicks should come directly from the ad platform or website (such as Google Ads)
+
+# COMMAND ----------
+
 # DBTITLE 1,Simulate Clicks
 import math
 import matplotlib.pyplot as plt
 import random
+#define click through rates - for simulating purposes 10 ctr buckets
 ctr_ranks = list(range(10))
 max_ctr_bucket = max(ctr_ranks)
 zctr_buckets = [ x/max_ctr_bucket * 2.5 for x in ctr_ranks ]
+#for simulating purposes consider the ctr rank to be approximately distributed as an exponential or "normal" distribution
 ctr_perc_levels = [round(math.exp(-(x**2)),2) for x in zctr_buckets]
 max_ctr = .12
 ctr_levels = [max_ctr * x for x in ctr_perc_levels]
+#create a dictionary with ctrs - this is going to be used later
 ctrs = dict(zip(ctr_ranks, ctr_levels))
 print(ctr_ranks)
 print(ctr_perc_levels )
 print(ctr_levels)
 print(ctrs)
 plt.plot(ctr_perc_levels)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ### Simulate Likes
+# MAGIC 
+# MAGIC On a similar way, for simulation purposes we'll simualte the number of "likes" on a product on our website or add
+# MAGIC * Ex. Product with 5 stars product reviews tend to have more likes
+# MAGIC * products with less stars tend to have less
 
 # COMMAND ----------
 
@@ -180,6 +204,8 @@ max_likes = 1261
 zstars_buckets = [ x/max_stars*2 for x in stars_per_product ]
 like_perc_levels = [round(math.exp(-(x**2)),2) for x in zstars_buckets]
 like_buckets = [int(max_likes * perc) for perc in like_perc_levels]
+#create a view items table or dictionary 
+#in a real project, this will normally include statistics of top items a user visited or was interested in his customer journey
 view_items_like_perc = dict(zip(reversed(stars_per_product), like_perc_levels))
 print(stars_per_product)
 print(zstars_buckets)
@@ -189,12 +215,15 @@ print(view_items_like_perc)
 
 # COMMAND ----------
 
-# DBTITLE 1,Simulate Click Through Rates
+# DBTITLE 1,Simulate Click Through Rates Score per User
 import pyspark.sql.functions as F
 from pyspark.sql.functions import col, create_map, lit
 from itertools import chain
 
+#use ctrs dictionary created before
 mapping_expr = create_map([lit(x) for x in chain(*ctrs.items())])
+
+#select all users
 users = bronze_data.select('uid').distinct()
 users = (users
          .withColumn("ctr_rank", (F.rand()*10).cast("int"))
@@ -215,8 +244,10 @@ display(users)
 # DBTITLE 1,Simulate User Behavior
 from pyspark.sql.functions import explode
 
+#use view items table or dictionary 
 mapping_expr2 = create_map([lit(x) for x in chain(*view_items_like_perc.items())])
 
+#select all users and find distribution of clicks per type of product review
 user_preferences = (users.select(["uid", "ctr_rank", "ctr_perc", explode(col("star_array")).alias("product_stars")])
                     .withColumn("like_perc", mapping_expr2[col("product_stars")])
                     .withColumn("ctr", col("ctr_perc") * 1.3 * col("like_perc"))
@@ -225,7 +256,7 @@ display(user_preferences)
 
 # COMMAND ----------
 
-# DBTITLE 1,Save to Delta Lake
+# DBTITLE 1,Save Simulated Click Through Rate by User to Delta Lake
 ctrs_table_name = "ctrs_by_user_product_stars_and_likes"
 
 (user_preferences
@@ -243,25 +274,25 @@ ctrs_table_name = "ctrs_by_user_product_stars_and_likes"
 
 # COMMAND ----------
 
+# DBTITLE 1,Load Bronze data again (we would need to further enrich)
+#no need to reload as we are already in spark
 display(bronze_data)
 
 # COMMAND ----------
 
 # DBTITLE 1,Simulate Product Bundles and Product Reviews
+#add product stars column
+clicks_data = (bronze_data
+               .withColumn("product_stars",  ((F.rand()*5)+1).cast("int"))
+              )
 
-clicks_data = bronze_data.withColumn("product_stars",  ((F.rand()*5)+1).cast("int"))
+#join with ctr and stars per user
 user_likes = spark.sql("Select * from ctrs_by_user_product_stars_and_likes")
 bronze_data2 = (clicks_data.join(user_likes, on = ['uid', 'product_stars'], how = 'left')
                )
+
 #star_ids = temp.select("product_stars").distinct()
 display(bronze_data2)
-
-# COMMAND ----------
-
-import numpy as np
-ctr_val = 0.5
-np.random.choice([0, 1 ], 1,
-              p=(1-ctr_val, ctr_val)).item()
 
 # COMMAND ----------
 
@@ -271,6 +302,7 @@ from pyspark.sql.types import IntegerType
 import pandas as pd
 #from numpy.random import choice
 
+#use pandas udf to simulate user click
 @pandas_udf("float", PandasUDFType.SCALAR)
 def user_click(ctrs: float) -> int:
     import numpy as np
@@ -283,6 +315,8 @@ def user_click(ctrs: float) -> int:
               p=(1-adj_ctr_val, adj_ctr_val))
        user_clicks.append(click.item())
     return pd.Series(user_clicks)
+
+  
 print(bronze_data2.count())
 bronze_data3 = (bronze_data2.withColumn("click", user_click("ctr"))
                 .withColumn("click", when(col("conversion") == 1, 1).otherwise(col("click"))) 
@@ -291,21 +325,20 @@ display(bronze_data3)
 
 # COMMAND ----------
 
+# DBTITLE 1,Number of Clicks per Type of Product and CTR Rank
 print(bronze_data3.count())
 temp2 = bronze_data3.select(["ctr_rank", "product_stars", "click"]).groupby("ctr_rank", "product_stars").sum("click")
 display(temp2)
 
 # COMMAND ----------
 
+# DBTITLE 1,Define Bronze Clicks Output Columns
 out_cols1 = ['uid', 'time', 'interaction', 'channel', 'conversion', 'click', 'product_stars' ] 
 out_cols2 = ['ctr_rank', 'ctr_perc', 'like_perc', 'ctr']
 out_cols3 = out_cols1 + out_cols2
 print(len(bronze_data.columns), bronze_data.columns)
 print(len(bronze_data3.columns), bronze_data3.columns)
 print(len(set(out_cols3)), out_cols3)
-
-# COMMAND ----------
-
 bronze_with_clicks = bronze_data3.select(out_cols1)
 display(bronze_with_clicks)
 
@@ -329,7 +362,7 @@ ctrs_per_transaction_table_name = "ctr_per_txn_with_clicks"
 
 # COMMAND ----------
 
-spark.sql("DROP TABLE IF EXISTS bronze_with_clicks")
+#spark.sql("DROP TABLE IF EXISTS bronze_with_clicks")
 
 # COMMAND ----------
 
@@ -341,18 +374,6 @@ bronze_clicks_table_name = "bronze_with_clicks"
    .mode("overwrite")
   .saveAsTable(bronze_clicks_table_name)
 )
-
-# COMMAND ----------
-
-### Create Additional Click Share data
-
-* Impression cost data - for example, cost per thousand impressions
-* Click data (need a click through rate per channel)
-* Cost per Click data
-* Create txns data -> Number of products??
-* Create price data 
-* Create Revenue data
-* Create Gross Profit
 
 # COMMAND ----------
 
