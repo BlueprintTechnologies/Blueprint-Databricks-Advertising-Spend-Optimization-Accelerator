@@ -52,9 +52,34 @@ display(clicks_data)
 
 # COMMAND ----------
 
-# DBTITLE 1,Marketing Spend Table from Original Databricks Accelerator
+# DBTITLE 1,Show Marketing Spend Table from Original Databricks Accelerator
 # MAGIC %sql
 # MAGIC SELECT * FROM gold_ad_spend
+
+# COMMAND ----------
+
+# MAGIC 
+# MAGIC %md
+# MAGIC ###  Simualte Costs for Digital Advertising
+# MAGIC 
+# MAGIC There are two common types of pricing models:
+# MAGIC 
+# MAGIC     
+# MAGIC * **cost-per-mille (CPM)**
+# MAGIC   * cost-per-thousand-impressions
+# MAGIC * **cost-per-click (CPC)**
+# MAGIC   * cost per each time a user clicks on an ad
+# MAGIC 
+# MAGIC 
+# MAGIC In general, different advertising channels may have different princing models.
+# MAGIC 
+# MAGIC * For example, Search Engine Marketing or SEM could charge a cost per click and Social Media Advertising may charge a cost per number of impressions. 
+# MAGIC * As a general rule, the same principles that apply to multi-touch attributions apply to assigning costs attributions. 
+# MAGIC 
+# MAGIC In this accelerator, we'll handle both types of pricing models 
+# MAGIC 
+# MAGIC * by defining a dictionary of synthetic CPC and CPM rates
+# MAGIC * by simulating user behavior (clicks, view items, and likes) and preferences (likes, revies, stars, and conversions) according to pre-specified user and product categories
 
 # COMMAND ----------
 
@@ -73,21 +98,22 @@ display(clicks_data)
 
 # COMMAND ----------
 
-# DBTITLE 1,Define CPM per channel
+# DBTITLE 1,Define CPM and Cost per Clicks per channel
 # CPMs per channel
 cpm_per_channel = {'Social Network': 8.0, 
                    'Search Engine Marketing':2.43, 
                    'Google Display Network':3.12, 
                    'Affiliates':20.0, 
                    'Email':15.0}
+print(f"cpm_rates: {list(cpm_per_channel.items())}")
 
-# COMMAND ----------
-
-display(clicks_data)
-
-# COMMAND ----------
-
-cpm_per_channel.items()
+# CPCs per channel
+cpc_per_channel = {'Social Network': 0.92, 
+                   'Search Engine Marketing':2.62, 
+                   'Google Display Network':0.63, 
+                   'Affiliates':0.88, 
+                   'Email':0.91}
+print(f"cpc_rates: {list(cpc_per_channel.items())}")
 
 # COMMAND ----------
 
@@ -102,25 +128,22 @@ detailed_costs = (clicks_data
                   .withColumn("cpm", mapping_expr[col("channel")])
                   .withColumn("cpi", col("cpm")/1000)
     )
-                 
+
 display(detailed_costs)
 
 # COMMAND ----------
 
-# DBTITLE 1,Define Cost per Click per Channel
-# CPCs per channel
-cpc_per_channel = {'Social Network': 0.92, 
-                   'Search Engine Marketing':2.62, 
-                   'Google Display Network':0.63, 
-                   'Affiliates':0.88, 
-                   'Email':0.91}
+# DBTITLE 1,Simulate Detailed Spend per Channel 
+mapping_expr2 = create_map([lit(x) for x in chain(*cpc_per_channel.items())])
+detailed_costs2 = (detailed_costs
+                   .withColumn("cpc", mapping_expr2[col("channel")])
+                  )
+display(detailed_costs2)
 
 # COMMAND ----------
 
-# DBTITLE 1,Simulate Detailed Spend per Channel
-mapping_expr2 = create_map([lit(x) for x in chain(*cpc_per_channel.items())])
-detailed_costs2 = detailed_costs.withColumn("cpc", mapping_expr2[col("channel")])
-display(detailed_costs2)
+# MAGIC %md
+# MAGIC ## Simulate Revenue per Ad
 
 # COMMAND ----------
 
@@ -134,6 +157,7 @@ gpt_per_product = { 5 : avg_price * 3.0/2,
                     1 : avg_price * 0.15/2}
 
 print(gpt_per_product)
+display(spark.createDataFrame(gpt_per_product.items(), schema = ["stars", "avg_order_value"]))
 
 # COMMAND ----------
 
@@ -148,24 +172,21 @@ display(detailed_costs3)
 
 # COMMAND ----------
 
-# DBTITLE 1,Marketing Contribution per Channel
-pnl_per_channel = (detailed_costs3.groupby("channel").sum(*["impression", "click", "conversion", "cpi", "cpc", "gpt"])
+# DBTITLE 1,Detailed Marketing Contribution per Channel
+contribution_per_channel = (detailed_costs3.groupby("channel").sum(*["impression", "click", "conversion", "cpi", "cpc", "gpt"])
                    .withColumn("marketing_cost", col("sum(cpi)") + col('sum(cpc)'))
                    .withColumn("marketing_contribution", col("sum(gpt)") - col("marketing_cost"))
                    .withColumn("ROAS", col("sum(gpt)") / col("marketing_cost"))
                   )
-display(pnl_per_channel)
+display(contribution_per_channel)
 
 # COMMAND ----------
 
-1948300 / 13977 
+#spark.sql("DROP TABLE IF EXISTS bronze_with_clicks_and_cost")
 
 # COMMAND ----------
 
-spark.sql("DROP TABLE IF EXISTS bronze_with_clicks_and_cost")
-
-# COMMAND ----------
-
+# DBTITLE 1,Save to Delta Lake
 detailed_cost_table_name = "bronze_with_clicks_and_cost"
 bronze_with_cost = detailed_costs3.drop("potential_gpt")
 
@@ -181,7 +202,3 @@ bronze_with_cost = detailed_costs3.drop("potential_gpt")
 
 # MAGIC %sql
 # MAGIC select * from bronze_with_clicks_and_cost
-
-# COMMAND ----------
-
-
