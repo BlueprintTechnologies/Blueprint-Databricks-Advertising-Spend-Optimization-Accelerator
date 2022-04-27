@@ -60,11 +60,6 @@ print(test_data.count())
 
 # COMMAND ----------
 
-# MAGIC %sql
-# MAGIC SELECT * FROM gold_ad_spend
-
-# COMMAND ----------
-
 spark.sql("DROP TABLE IF EXISTS train_impr_clicks_and_cost")
 
 # COMMAND ----------
