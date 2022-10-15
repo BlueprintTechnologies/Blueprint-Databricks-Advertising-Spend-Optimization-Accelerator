@@ -213,7 +213,7 @@ train_data.printSchema()
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Train, Test, and, Validation split
+# MAGIC ## Train, Validation, and Test split
 # MAGIC 
 # MAGIC "The standard procedure is to split any training data into three sets: The first is the training data, used to train any model. The
 # MAGIC second is used to assess which model has a better test performance. Once we have chosen our optimal model on the basis of

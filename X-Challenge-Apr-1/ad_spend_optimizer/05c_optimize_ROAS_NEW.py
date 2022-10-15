@@ -16,7 +16,7 @@
 # MAGIC 
 # MAGIC * This new accelerator is based on original Databricks Accelerator [Solution Accelerator: Multi-touch Attribution](https://databricks.com/blog/2021/08/23/solution-accelerator-multi-touch-attribution.html)
 # MAGIC 
-# MAGIC * As of this X-Challenge version the original Databricks data is still required, so the original Databricks notebooks are still required to create the BRONZE and SILVER raw data tables
+# MAGIC * As of this X-Challenge version the original Databricks data is still required. The original Databricks notebooks are used to create the BRONZE and SILVER raw data tables
 
 # COMMAND ----------
 
@@ -221,6 +221,22 @@ pred_data = (spark.sql("SELECT * FROM score_data_with_pred")
 
 print(pred_data.agg({"user_rank": "max"}).collect()[0])
 display(pred_data)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC 
+# MAGIC ### Quadratic Utility Funciton modeling
+# MAGIC 
+# MAGIC * In retail: “Utility is the happiness a person gets by consuming goods and services”
+# MAGIC 
+# MAGIC * In portfolio management: 
+# MAGIC   * Utility Function can be used both to score product bundles and to determine Optimal Portfolio and Assortment Planning
+# MAGIC   * degrees of risk aversion are defined by the additional marginal return an investor needs to accept more risk
+# MAGIC   * the additional marginal return is calculated as the standard deviation of the return on investment (ROI)
+# MAGIC 
+# MAGIC * Quadratic Utility function:
+# MAGIC   Expected Return on investment - standard deviation^2
 
 # COMMAND ----------
 
