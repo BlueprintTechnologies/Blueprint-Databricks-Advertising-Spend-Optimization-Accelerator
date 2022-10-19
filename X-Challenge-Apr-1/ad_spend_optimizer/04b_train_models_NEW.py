@@ -91,6 +91,14 @@
 
 # COMMAND ----------
 
+#%pip install hyperopt
+
+# COMMAND ----------
+
+#%pip install mlflow
+
+# COMMAND ----------
+
 # MAGIC %md
 # MAGIC The original accelerator uses three separate notebooks to configure the environment:
 # MAGIC * 99_cleanup
@@ -106,7 +114,6 @@
 
 # COMMAND ----------
 
-# DBTITLE 1,Get database and paths names (for this accelerator environment)
 params = get_params()
 database_name = params['database_name']
 raw_data_path = params['raw_data_path']
@@ -116,7 +123,6 @@ print(raw_data_path)
 
 # COMMAND ----------
 
-# DBTITLE 1,Select database
 print(database_name)
 _ = spark.sql('USE {}'.format(database_name))
 
@@ -160,19 +166,20 @@ display(data.sort(col('gpt').desc()))
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC #### Reduce train size
+# MAGIC ##### Reduce Data Sample for Demo Purposes
 # MAGIC 
-# MAGIC For demo purposes only, we'll provide a demo option to just keep 20% of the training data 
+# MAGIC Here we'll provide an option to keep just 20% of the training data for demo purposes
 # MAGIC 
-# MAGIC Note: This is not what we would do in a production environment, this is just so that this entire notebook can run end-to-end fast enough to demonstrate on a quick demo session. Kind of smoke test and for illustration purposes.
+# MAGIC Note: This is not what we would do in a production environment, this is just so that this entire notebook can run end-to-end on live presentation. Similar to a smoke test.
 
 # COMMAND ----------
 
 # DBTITLE 1,Reduce train size (for Demo purposes)
-#To make this notebook run fast: keep 20% of data
+#To make this notebook run faster: 
+#keeping 20% of data
 split_perc = .2
 
-#uncomment and set to None if you want to run on entire dataset 
+#if you want to run on entire dataset: uncomment and set to None
 #split_perc = None
 
 #this will choose between the two options
@@ -189,17 +196,17 @@ print(f"keeping {to_nrows} rows from total {from_nrows} rows")
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ### Check train data format and schema
+# MAGIC #### Prepare data for Apache Spark ML training
 # MAGIC 
-# MAGIC Spark MLib models require data in specific format.
+# MAGIC Spark MLlib models require data in specific format.
 # MAGIC 
 # MAGIC For example:
 # MAGIC * Categorical variables might need to be encoded
-# MAGIC * Certain Spark data types might be mandatory for certain Spark models (Ex. DoubleType)
+# MAGIC * Certain Spark data types might be mandatory for certain Spark models (e.g. DoubleType)
 # MAGIC * A feature vector needs to be created, and named "features" column
 # MAGIC * All of these needs to be repeatable, as you would want to perform same data preparation to train, test, and prediction data.
 # MAGIC 
-# MAGIC This next cell is just informative; the actual data preparation happens in subsequent cells below
+# MAGIC The next cell is just informative; the actual data preparation happens in subsequent cells below
 
 # COMMAND ----------
 
@@ -213,7 +220,7 @@ train_data.printSchema()
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ## Train, Validation, and Test split
+# MAGIC ## Train, Test, and, Validation split
 # MAGIC 
 # MAGIC "The standard procedure is to split any training data into three sets: The first is the training data, used to train any model. The
 # MAGIC second is used to assess which model has a better test performance. Once we have chosen our optimal model on the basis of
@@ -253,7 +260,7 @@ train_data.printSchema()
 
 # COMMAND ----------
 
-# DBTITLE 1,Set aside some "test" data to Evaluate Performance (this is different from held-out Validation set)
+# DBTITLE 1,Set aside some data to Evaluate Performance (this is different from held-out Validation set)
 #best practice - even when using methods such as cross-validation 
 train_data, test_data = train_data.randomSplit([.8,.2], seed=1234)
 print(f"data to train: {train_data.count()} rows")
@@ -286,9 +293,15 @@ print(f"data to evaluate/test: {test_data.count()} rows")
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC ### Prepare Data for Spark Models
+# MAGIC ### Prepare Data for Predictive Model
 # MAGIC 
-# MAGIC Spark MLib models require data in specific format
+# MAGIC As mentioned, Spark MLib models require data in specific format
+# MAGIC 
+# MAGIC Some of these are shared across all Spark ML models, some are unique to specific type of model. 
+# MAGIC 
+# MAGIC We focus in resusability both:
+# MAGIC * leveraging good code engineering practices (pySpark, Python, Scala, etc)
+# MAGIC * Existing Apache Spark and Databricks functionality. Ex. Apache Spark Pipelines, ML Flow, etc
 # MAGIC 
 # MAGIC In the following cell:
 # MAGIC 1. Identify feature columns
@@ -299,7 +312,7 @@ print(f"data to evaluate/test: {test_data.count()} rows")
 
 # COMMAND ----------
 
-# DBTITLE 1,Prepare data for Spark models - Part 1
+# DBTITLE 1,Prepare data for Spark Predictive models - Part 1
 from pyspark.ml.linalg import Vectors
 from pyspark.ml.feature import VectorAssembler, StringIndexer
 from pyspark.sql.types import DoubleType
@@ -348,8 +361,8 @@ def prep_data(train_data):
 
 # COMMAND ----------
 
-# DBTITLE 1,Prepare data for Spark models - Part 2
-# Spark Mlib API requires specific format
+# DBTITLE 1,Prepare data for Spark Predictive models - Part 2
+# Re-using specific Spark MLlib data preparation tecniques
 clean_train_data = prep_data(train_data)
 
 #collect features into a "features" vector column 
@@ -366,9 +379,13 @@ display(train_features_df2)
 
 # COMMAND ----------
 
-# DBTITLE 1,Custom Transformer for Spark Pipeline
+# DBTITLE 1,Prepare data for Spark Predictive models - Part 3
+#Custom Transformer for Spark Pipeline
+
 from pyspark.ml.pipeline import Transformer
 from pyspark.ml.util import Identifiable
+
+#Re-using specific Spark MLlib data preparation tecniques with Apache Spark Pipeline
 
 class PrepDataTransformer(Transformer):
     def _prep_data(self, train_data):
